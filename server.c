@@ -98,7 +98,6 @@ void *mpvThread(void * arguments)
         json_t *rReqObj = json_object_get(root, "request_id");
         if (json_is_integer(rReqObj)) {
           int rReqId = json_integer_value(rReqObj);
-          printf("Has Request ID %d\n", rReqId);
           int qReqI = -1;
 
           // Find Index
@@ -108,8 +107,7 @@ void *mpvThread(void * arguments)
               break;
             }
           }
-          
-          printf("Has Request Index %d - %s\n", qReqI, mpvEventsConn->reqQue[qReqI]);
+
           json_t *rData = json_object_get(root, "data");
           if (json_is_object(rData) != 1) {
             switch(json_typeof(rData)) {
@@ -188,7 +186,7 @@ void *mpvThread(void * arguments)
               case JSON_ARRAY:
               case JSON_NULL:
               {
-                printf("OTHER\n");
+                // printf("OTHER\n");
                 CLEAR(mpvEventsConn->reqQue[qReqI], 32);
                 mpvEventsConn->reqQueI[qReqI] = -1;
                 mpvEventsConn->reqQueCnt--;                
@@ -205,7 +203,7 @@ void *mpvThread(void * arguments)
         if (json_is_string(rEvent)) {
           const char *strEventData = json_string_value(rEvent);
           char* strEvent = strdup(strEventData);
-          printf("Event: %s\n", strEvent);
+          dbgprintf(DBG_MPV_READ, "Event: %s\n", strEvent);
           if (strcmp(strEvent, "file-loaded") == 0) {
             if (++mpvEventsConn->reqId == mpvEventsConn->reqTop) { mpvEventsConn->reqId = 1; } // reset request ids
 
@@ -277,12 +275,12 @@ void *mpvTimerThread(void * arguments)
   while(!(*args->bCancel) && runLoop) {
     struct mpv_any_u* mpvPlaybackMpvu;
     rc = mpvSocketSinglet(mpvTimerConn, "\"get_property\", \"playback-time\"", m_bQuit, &mpvPlaybackMpvu);
-    s_send(timer, mpvPlaybackMpvu->ptr);
     if (rc == 0) {
+      s_send(timer, mpvPlaybackMpvu->ptr);
       free(mpvPlaybackMpvu->ptr);
       free(mpvPlaybackMpvu);
     } else {
-      printf("Bad Timer Reply\n");
+      dbgprintf(DBG_MPV_READ, "Bad Timer Reply\n");
     }
     usleep(1000000);
   }
@@ -294,7 +292,6 @@ void *mpvTimerThread(void * arguments)
   
   zmq_close(timer);
 
-  printf("Shut Down Timer Thread\n");
   return 0;
 }
 
@@ -314,6 +311,8 @@ int main(int argc, char* args[])
 {
   m_bSigInt = 0;
   m_bQuit = 0;
+  reqId = 1;
+  reqTop = 2147483647;
 
   // Debug printing support
   init_dbg();
@@ -343,7 +342,7 @@ int main(int argc, char* args[])
   conn = MPV_CONN_INIT();
   rc = mpvSocketSinglet(conn, "\"client_name\"", m_bQuit, &retClient);
   if (rc == 0) {
-    printf("Client Name: %s\n", (char*)retClient->ptr);
+    dbgprintf(DBG_DEBUG, "Client Name: %s\n", (char*)retClient->ptr);
     free(retClient->ptr);
     free(retClient);
   }
@@ -377,13 +376,17 @@ int main(int argc, char* args[])
           struct mpv_any_u* mpvRetMpvu;
           struct mpv_conn *conn = MPV_CONN_INIT();
           int cplen = mpvSocketSinglet(conn, msg, m_bQuit, &mpvRetMpvu);
+
           if (cplen == -1) {
             s_send(command_rep, "{\"error\": \"bad request\"}");
           } else {
             s_send(command_rep, (char*)mpvRetMpvu->ptr);
+            free(mpvRetMpvu->ptr);
+            free(mpvRetMpvu);
           }
-          mpv_socket_close(conn->fdSelect);
-          MPV_CONN_DESTROY(conn);
+          if (conn->fdSelect > -1) {
+            mpv_socket_close(conn->fdSelect);
+          }
           free(conn);
         }
         free(msg);

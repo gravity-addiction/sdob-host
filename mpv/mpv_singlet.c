@@ -39,7 +39,6 @@ int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, struct mpv_a
   int errSuccess = 1;
   int result = -1;
 
-  struct mpv_any_u *mpvu = MPV_ANY_U_NEW();
   conn->reqId = reqId;
   if (++reqId == reqTop) { reqId = 1; } // reset request ids
 
@@ -52,7 +51,7 @@ int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, struct mpv_a
   }
   snprintf(data, cmdlen, cmd_tmp, cmd, conn->reqId);
 
-  dbgprintf(DBG_MPV_WRITE, "Data: %s\n", data);
+  // dbgprintf(DBG_MPV_WRITE, "Data: %s\n", data);
   conn->fdSelect = mpv_fd_write(conn, data, 0);
 
   if (!conn->fdSelect) {
@@ -89,7 +88,7 @@ int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, struct mpv_a
       int rReqId = -1;
       int rc = sgetline(conn->fdSelect, &mpv_rpc_ret);
       if (rc > 0) {
-        printf("Got: %s\n", mpv_rpc_ret);
+        dbgprintf(DBG_MPV_READ, "Raw: %s\n", mpv_rpc_ret);
 
         json_t *root;
         json_error_t error;
@@ -121,22 +120,24 @@ int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, struct mpv_a
         
         if (rReqId == conn->reqId && errSuccess == 0) {
           dbgprintf(DBG_MPV_READ, "mpvread %d:%d : '%s'\n", rReqId, conn->reqId, mpv_rpc_ret);
-/*
-          size_t retlen = snprintf(NULL, 0, "%s", mpv_rpc_ret) + 1;
-          dbgprintf(DBG_MPV_READ, "Ret %ld\n", retlen);
-          mpvu->ptr = (char*)malloc(retlen * sizeof(char));
-          if (mpvu->ptr == NULL) {
-            dbgprintf(DBG_ERROR, "%s\n%s\n", "Error!, No Memory", strerror(errno));
-            goto cleanup;
-          }
-          int cpyrc = strlcpy(mpvu->ptr, mpv_rpc_ret, retlen);
-          if (cpyrc == -1) {
-            dbgprintf(DBG_ERROR, "Singlet Copy Error: %s\n", mpv_rpc_ret);
-            goto cleanup;            
-          }
-*/
+          struct mpv_any_u *mpvu = MPV_ANY_U_NEW();
           json_t *rData = json_object_get(root, "data");
-          if (json_is_object(rData) != 1) {
+          if (rData == NULL) {
+            size_t retlen = snprintf(NULL, 0, "%s", mpv_rpc_ret) + 1;
+            dbgprintf(DBG_MPV_READ, "Ret %ld\n", retlen);
+            mpvu->ptr = (char*)malloc(retlen * sizeof(char));
+            if (mpvu->ptr != NULL) {
+              int cpyrc = strlcpy(mpvu->ptr, mpv_rpc_ret, retlen);
+              if (cpyrc == -1) {
+                dbgprintf(DBG_ERROR, "Singlet Copy Error: %s\n", mpv_rpc_ret);
+                free(mpvu->ptr);
+                free(mpvu);
+              } else {
+                result = 0;
+              }
+            }
+          } else if (json_is_object(rData) != 1) {
+
             switch(json_typeof(rData)) {
               case JSON_STRING:
               {
@@ -190,27 +191,39 @@ int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, struct mpv_a
               case JSON_NULL:
               {
                 printf("OTHER\n");
+                free(mpvu);
                 break;
               }
             }
+          } else {
+            // data: is an object, send back entire data string
+            mpvu->ptr = json_dumps(rData, JSON_COMPACT);
+            printf("Got ReP: %s\n", mpvu->ptr);
+            result = 0;
           }
+
           *ret = mpvu;
           free(mpv_rpc_ret);
           json_decref(root);
           goto cleanup;
-
         // Error Response
-        } else if (rReqId > conn->reqId && errSuccess != 0) {
+        } else if (rReqId == conn->reqId && errSuccess != 0) {
           dbgprintf(DBG_MPV_READ|DBG_DEBUG,
                     "Error after requesting\n%s\n",
                     mpv_rpc_ret);
+          free(mpv_rpc_ret);
+          json_decref(root);
+          goto cleanup;
+                              
         } else {
           dbgprintf(DBG_MPV_READ, "mpvignore %d:%d : '%s'\n", rReqId, conn->reqId, mpv_rpc_ret);
         }
+        
         free(mpv_rpc_ret);
         json_decref(root);
+
       } else {
-        goto cleanup;
+        dbgprintf(DBG_ERROR, "Cannot Parse JSON: %s\n", mpv_rpc_ret);
       }
     } else {
       dbgprintf(DBG_ERROR, "Singlet Unable to select FD: %d\n", selT);
