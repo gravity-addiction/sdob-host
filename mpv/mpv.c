@@ -16,10 +16,6 @@
 #include "../shared.h"
 #include "mpv.h"
 
-// lock for creating one connection to the socket at a time
-static pthread_mutex_t mpvSocketConnectionLock = PTHREAD_MUTEX_INITIALIZER;
-
-
 void mpv_socket_close(int fd) {
   if (fd) { close(fd); }
 }
@@ -65,7 +61,6 @@ int mpv_fd_check(int fd) {
 struct mpv_conn * MPV_CONN_INIT() {
   struct mpv_conn *conn = (struct mpv_conn *)malloc(sizeof(struct mpv_conn));
   conn->socket_path = "/opt/sdobox/mpv.socket";
-  conn->cmdLock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
   conn->connected = 0;
   conn->fdSelect = -1;
   // conn->fdSet;
@@ -80,14 +75,15 @@ struct mpv_conn * MPV_CONN_INIT() {
 }
 
 void MPV_CONN_DESTROY(struct mpv_conn *conn) {
-
+  if (conn->fdSelect > -1) {
+    mpv_socket_close(conn->fdSelect);
+  }
 }
 
 
 
 
 int mpv_socket_conn(struct mpv_conn *conn, int bCancel) {
-  pthread_mutex_lock(&mpvSocketConnectionLock);
   int fd;
   // struct sockaddr_in addr;
   struct sockaddr_un addr;
@@ -132,7 +128,6 @@ int mpv_socket_conn(struct mpv_conn *conn, int bCancel) {
   }
 
  cleanup:
-  pthread_mutex_unlock(&mpvSocketConnectionLock);
   return fd;
 }
 
@@ -140,6 +135,7 @@ int mpv_fd_write(struct mpv_conn *conn, char *data, int bCancel) {
 
   // Check for reconnection
   if (mpv_fd_check(conn->fdSelect) > 0) {
+    printf("Write Connecting\n");
     // mpv_socket_lastConn = millis();
     conn->fdSelect = mpv_socket_conn(conn, bCancel);
     if (conn->fdSelect == -1) {
@@ -167,9 +163,7 @@ int mpv_fd_write(struct mpv_conn *conn, char *data, int bCancel) {
 }
 
 int mpv_cmd(struct mpv_conn *conn, char *cmd_string, int bCancel) {
-  pthread_mutex_lock(&conn->cmdLock);
   int fdWrite = mpv_fd_write(conn, cmd_string, bCancel);
-  pthread_mutex_unlock(&conn->cmdLock);
 
   free(cmd_string);
   return fdWrite;

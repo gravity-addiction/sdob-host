@@ -45,7 +45,6 @@ void signal_sigint(int sig) { // can be called asynchronously
 void *mpvThread(void * arguments)
 {
   struct threadArgs *args = (struct threadArgs*)arguments;
-  int bCancel = (int)args->bCancel;
   //  Prepare our context and publisher
   int rc;
   int runLoop = 0;
@@ -56,9 +55,9 @@ void *mpvThread(void * arguments)
 
   struct mpv_conn *mpvEventsConn = MPV_CONN_INIT();
 
-  while (!bCancel && !mpvEventsConn->connected) {
+  while (!(*args->bCancel) && !mpvEventsConn->connected) {
     dbgprintf(DBG_MPV_WRITE, "mpvThread Using Socket: %s\n", mpvEventsConn->socket_path);
-    if ((mpvEventsConn->fdSelect = mpv_socket_conn(mpvEventsConn, bCancel)) == -1) {
+    if ((mpvEventsConn->fdSelect = mpv_socket_conn(mpvEventsConn, (*args->bCancel))) == -1) {
       dbgprintf(DBG_ERROR, "%s\n", "MPV Socket Error");
       usleep(1000000);      
     } else {
@@ -69,13 +68,13 @@ void *mpvThread(void * arguments)
   }
 
   // Grab MPV Events, sent in JSON format
-  while(!bCancel && runLoop) {
+  while(!(*args->bCancel) && runLoop) {
     if (!fd_is_valid(mpvEventsConn->fdSelect)) {
       dbgprintf(DBG_MPV_WRITE, "MPV Events Sockets Re-Connect\n");
       // try closing fd
       if (mpvEventsConn->fdSelect) { close(mpvEventsConn->fdSelect); }
       // reconnect fd
-      if ((mpvEventsConn->fdSelect = mpv_socket_conn(mpvEventsConn, bCancel)) == -1) {
+      if ((mpvEventsConn->fdSelect = mpv_socket_conn(mpvEventsConn, (*args->bCancel))) == -1) {
         // MPV Connect Error
         printf("Sleep\n");
         usleep(2000000);
@@ -205,7 +204,7 @@ void *mpvThread(void * arguments)
           char* strEvent = strdup(strEventData);
           dbgprintf(DBG_MPV_READ, "Event: %s\n", strEvent);
           if (strcmp(strEvent, "file-loaded") == 0) {
-            if (++mpvEventsConn->reqId == mpvEventsConn->reqTop) { mpvEventsConn->reqId = 1; } // reset request ids
+            int nextReqId = nextRequestId();
 
             // Find Slot
             int qReqI = 0;
@@ -216,20 +215,19 @@ void *mpvThread(void * arguments)
               }
             }
 
-            mpvEventsConn->reqQueI[qReqI] = mpvEventsConn->reqId;
+            mpvEventsConn->reqQueI[qReqI] = nextReqId;
             strlcpy(mpvEventsConn->reqQue[qReqI], "duration", 32);
             mpvEventsConn->reqQueCnt++;
 
             char* cmd = "\"get_property\", \"duration\"";
-            char* cmd_tmp = "{\"command\":[%s],\"request_id\": %d}\n";
-            size_t cmdlen = snprintf(NULL, 0, cmd_tmp, cmd, mpvEventsConn->reqId) + 1;
+            char* cmd_tmp = "{\"command\":[%s],\"request_id\": %d, \"async\": true}\n";
+            size_t cmdlen = snprintf(NULL, 0, cmd_tmp, cmd, nextReqId) + 1;
             char *data = (char*)malloc(cmdlen * sizeof(char));
             if (data == NULL) {
               dbgprintf(DBG_ERROR, "%s\n%s\n", "Error!, No Memory", strerror(errno));
-              pthread_mutex_unlock(&mpvEventsConn->cmdLock);
             } else {
-              snprintf(data, cmdlen, cmd_tmp, cmd, mpvEventsConn->reqId);
-              mpvEventsConn->fdSelect = mpv_fd_write(mpvEventsConn, data, bCancel);
+              snprintf(data, cmdlen, cmd_tmp, cmd, nextReqId);
+              mpvEventsConn->fdSelect = mpv_fd_write(mpvEventsConn, data, (*args->bCancel));
               free(data);
             }
           }
@@ -249,8 +247,9 @@ void *mpvThread(void * arguments)
       usleep(200000);
     }
   }
-
+  dbgprintf(DBG_DEBUG, "%s\n", "Shutting Down Mpv Thread");
   zmq_close (publisher);
+  free(mpvEventsConn);
   return 0;
 }
 
@@ -262,7 +261,6 @@ void *mpvThread(void * arguments)
 void *mpvTimerThread(void * arguments)
 {
   struct threadArgs *args = (struct threadArgs*)arguments;
-  //  Prepare our context and publisher
   int rc;
   int runLoop = 1;
 
@@ -273,24 +271,57 @@ void *mpvTimerThread(void * arguments)
   struct mpv_conn *mpvTimerConn = MPV_CONN_INIT();
   // Grab MPV Events, sent in JSON format
   while(!(*args->bCancel) && runLoop) {
-    struct mpv_any_u* mpvPlaybackMpvu;
-    rc = mpvSocketSinglet(mpvTimerConn, "\"get_property\", \"playback-time\"", m_bQuit, &mpvPlaybackMpvu);
+    char* mpvRet;
+    rc = mpvSocketSinglet(mpvTimerConn, "\"get_property\", \"playback-time\"", m_bQuit, &mpvRet);
     if (rc == 0) {
-      s_send(timer, mpvPlaybackMpvu->ptr);
-      free(mpvPlaybackMpvu->ptr);
-      free(mpvPlaybackMpvu);
+      s_send(timer, mpvRet);
+      free(mpvRet);
     } else {
       dbgprintf(DBG_MPV_READ, "Bad Timer Reply\n");
     }
     usleep(1000000);
   }
-  printf("Shutting Down Timer Thread\n");
+  dbgprintf(DBG_DEBUG, "%s\n", "Shutting Down Timer Thread");
 
-  mpv_socket_close(mpvTimerConn->fdSelect);
   MPV_CONN_DESTROY(mpvTimerConn);
   free(mpvTimerConn);
   
   zmq_close(timer);
+  return 0;
+}
+
+
+
+void *mpvWriterThread(void * arguments)
+{
+  struct threadArgs *args = (struct threadArgs*)arguments;
+  int rc;
+
+  void *command_raw = zmq_socket (args->context, ZMQ_SUB);
+  rc = zmq_bind (command_raw, "tcp://*:5558");
+  assert (rc == 0);
+  const char *filter = "";
+  rc = zmq_setsockopt (command_raw, ZMQ_SUBSCRIBE, filter, strlen(filter));
+  assert (rc == 0);
+
+  struct mpv_conn *mpvWriteConn = MPV_CONN_INIT();
+
+  while(!(*args->bCancel)) {
+    char msg[4096];
+    int size = zmq_recv(command_raw, msg, 4096 - 1, ZMQ_DONTWAIT);
+    if (size > 0) {
+      msg[size < 4096 ? size : 4096 - 1] = '\0';
+      mpvWriteConn->fdSelect = mpv_fd_write(mpvWriteConn, msg, m_bQuit);
+    } else {
+      s_sleep(100);
+    }
+  }
+  dbgprintf(DBG_DEBUG, "%s\n", "Shutting Down Writer Thread");
+
+  MPV_CONN_DESTROY(mpvWriteConn);
+  free(mpvWriteConn);
+  
+  zmq_close(command_raw);
 
   return 0;
 }
@@ -328,7 +359,7 @@ int main(int argc, char* args[])
   // }
 
   void *context = zmq_ctx_new ();
-  pthread_t mpv_tid, timer_tid, singlet_tid;
+  pthread_t mpv_tid, timer_tid, writer_tid;
   int rc;
 
   // Open :5557 for two-way requests
@@ -337,19 +368,15 @@ int main(int argc, char* args[])
   assert (rc == 0);
 
 
-  struct mpv_any_u* retClient;
-  struct mpv_conn *conn;
-  conn = MPV_CONN_INIT();
-  rc = mpvSocketSinglet(conn, "\"client_name\"", m_bQuit, &retClient);
+
+  char* mpvRet;
+  struct mpv_conn *conn = MPV_CONN_INIT();
+  rc = mpvSocketSinglet(conn, "\"client_name\"", m_bQuit, &mpvRet);
   if (rc == 0) {
-    dbgprintf(DBG_DEBUG, "Client Name: %s\n", (char*)retClient->ptr);
-    free(retClient->ptr);
-    free(retClient);
+    dbgprintf(DBG_DEBUG, "Client Name: %s\n", mpvRet);
+    free(mpvRet);
   }
-  mpv_socket_close(conn->fdSelect);
-  MPV_CONN_DESTROY(conn);
-  free(conn);
-  
+
   struct threadArgs threadpassMpv;
   threadpassMpv.context = context;
   threadpassMpv.bCancel = &m_bQuit;
@@ -357,46 +384,50 @@ int main(int argc, char* args[])
   struct threadArgs threadpassTimer;
   threadpassTimer.context = context;
   threadpassTimer.bCancel = &m_bQuit;
-
-  // pthread_create(&mpv_tid, NULL, mpvThread, (void *)&threadpassMpv);
-  pthread_create(&timer_tid, NULL, mpvTimerThread, (void *)&threadpassTimer);
   
+  struct threadArgs threadpassWriter;
+  threadpassWriter.context = context;
+  threadpassWriter.bCancel = &m_bQuit;
+
+  pthread_create(&mpv_tid, NULL, mpvThread, (void *)&threadpassMpv);
+  pthread_create(&timer_tid, NULL, mpvTimerThread, (void *)&threadpassTimer);
+  pthread_create(&writer_tid, NULL, mpvWriterThread, (void *)&threadpassWriter);
+  
+  // 0MQs sockets to poll
+  // zmq_pollitem_t items [] = {
+  //   { command_rep, 0, ZMQ_POLLIN, 0 }
+  // };
+
   while (!m_bQuit) {
-    // 0MQs sockets to poll
-    zmq_pollitem_t items [] = {
-      { command_rep, 0, ZMQ_POLLIN, 0 }
-    };
 
     // Poll Loop
-    int rc = zmq_poll (items, 1, -1);
-    if (!m_bQuit && rc > -1) {  
-      if (items[0].revents & ZMQ_POLLIN) {
+    // int rc = zmq_poll (items, 1, -1);
+    // if (!m_bQuit && rc > -1) {
+      //if (items[0].revents & ZMQ_POLLIN) {
         char *msg = s_recv (command_rep);
         if (msg) {
-          struct mpv_any_u* mpvRetMpvu;
-          struct mpv_conn *conn = MPV_CONN_INIT();
-          int cplen = mpvSocketSinglet(conn, msg, m_bQuit, &mpvRetMpvu);
-
-          if (cplen == -1) {
-            s_send(command_rep, "{\"error\": \"bad request\"}");
+          char* mpvRet;
+          int cplen = mpvSocketSinglet(conn, msg, m_bQuit, &mpvRet);
+          if (cplen == 0) {
+            s_send(command_rep, mpvRet);
+            free(mpvRet);
           } else {
-            s_send(command_rep, (char*)mpvRetMpvu->ptr);
-            free(mpvRetMpvu->ptr);
-            free(mpvRetMpvu);
+            s_send(command_rep, "{\"error\": \"bad request\"}");
           }
-          if (conn->fdSelect > -1) {
-            mpv_socket_close(conn->fdSelect);
-          }
-          free(conn);
         }
         free(msg);
-      }
-    }
+      // }
+    // }
+    // usleep(100);
   }
+  MPV_CONN_DESTROY(conn);
+  free(conn);
+  printf("Shutting Down Main\n");
   zmq_close (command_rep);
-
-  // pthread_join(mpv_tid, NULL);
+  
+  pthread_join(mpv_tid, NULL);
   pthread_join(timer_tid, NULL);
+  pthread_join(writer_tid, NULL);
 
   // free(threadpassMpv);
   // free(threadpassTimer);

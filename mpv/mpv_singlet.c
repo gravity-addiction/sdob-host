@@ -17,30 +17,13 @@
 #include "mpv_singlet.h"
 #include "mpv.h"
 
-static pthread_mutex_t mpvSingletLock = PTHREAD_MUTEX_INITIALIZER;
 
-struct mpv_any_u * MPV_ANY_U_NEW() {
-  struct mpv_any_u * mpvu = (struct mpv_any_u*)malloc(sizeof(struct mpv_any_u));
-  return mpvu;
-}
+int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, char** ret) {
 
-void MPV_ANY_U_FREE(struct mpv_any_u *mpvu) {
-  free(mpvu);
-}
-
-
-
-
-
-
-
-int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, struct mpv_any_u** ret) {
-
+  conn->reqId = nextRequestId();
   int errSuccess = 1;
   int result = -1;
-
-  conn->reqId = reqId;
-  if (++reqId == reqTop) { reqId = 1; } // reset request ids
+  char* ret2;
 
   char* cmd_tmp = "{\"command\":[%s],\"request_id\": %d}\n";
   size_t cmdlen = snprintf(NULL, 0, cmd_tmp, cmd, conn->reqId) + 1;
@@ -66,6 +49,7 @@ int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, struct mpv_a
     
     // Check for reconnection
     if (mpv_fd_check(conn->fdSelect) > 0) {
+      printf("reconnecting\n");
       conn->connected = 0;
       // mpv_socket_lastConn = millis();
       conn->fdSelect = mpv_socket_conn(conn, bCancel);
@@ -92,147 +76,145 @@ int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, struct mpv_a
 
         json_t *root;
         json_error_t error;
+        json_t *rReqObj;
+        json_t *rError;
         root = json_loads(mpv_rpc_ret, 0, &error);
+        
         if (json_is_object(root) != 1) {
+          dbgprintf(DBG_ERROR, "Bad Root: %s\n", mpv_rpc_ret);
           rReqId = -1;
         } else {
           // Successful Response With Data
-          json_t *rReqObj = json_object_get(root, "request_id");
-          if (json_is_integer(rReqObj) != 1) {
-            // printf("No Request Event\n");
-            rReqId = 0;
-          } else {
+          rReqObj = json_object_get(root, "request_id");
+          if (json_is_integer(rReqObj)) {
             rReqId = json_integer_value(rReqObj);
           }
-          json_decref(rReqObj);
         }
-
+  
         errSuccess = 1;
-        json_t *rError = json_object_get(root, "error");
+        rError = json_object_get(root, "error");
         if (json_is_string(rError) != 1) {
           // printf("No Error String\n");
         } else {
           const char *strError = json_string_value(rError);
           errSuccess = strcmp(strError, "success");
-          // free(&strError);
         }
-        json_decref(rError);
-        
+
         if (rReqId == conn->reqId && errSuccess == 0) {
-          dbgprintf(DBG_MPV_READ, "mpvread %d:%d : '%s'\n", rReqId, conn->reqId, mpv_rpc_ret);
-          struct mpv_any_u *mpvu = MPV_ANY_U_NEW();
+          printf("mpvread %d:%d : '%s'\n", rReqId, conn->reqId, mpv_rpc_ret);
+
           json_t *rData = json_object_get(root, "data");
           if (rData == NULL) {
-            size_t retlen = snprintf(NULL, 0, "%s", mpv_rpc_ret) + 1;
-            dbgprintf(DBG_MPV_READ, "Ret %ld\n", retlen);
-            mpvu->ptr = (char*)malloc(retlen * sizeof(char));
-            if (mpvu->ptr != NULL) {
-              int cpyrc = strlcpy(mpvu->ptr, mpv_rpc_ret, retlen);
-              if (cpyrc == -1) {
-                dbgprintf(DBG_ERROR, "Singlet Copy Error: %s\n", mpv_rpc_ret);
-                free(mpvu->ptr);
-                free(mpvu);
-              } else {
-                result = 0;
-              }
-            }
+            size_t len = snprintf(NULL, 0, "%s", mpv_rpc_ret) + 1;
+            ret2 = (char*)malloc(len * sizeof(char));
+            snprintf(ret2, len, "%s", mpv_rpc_ret);
+            result = 0;
+
           } else if (json_is_object(rData) != 1) {
 
             switch(json_typeof(rData)) {
               case JSON_STRING:
               {
-                mpvu->ptr = strdup(json_string_value(rData));
+                // printf("S\n");
+                const char *jsonStr = json_string_value(rData);
+                size_t len = snprintf(NULL, 0, "%s", jsonStr) + 1;
+                ret2 = (char*)malloc(len * sizeof(char));
+                snprintf(ret2, len, "%s", jsonStr);        
                 result = 0;
-
                 break;
               }
               case JSON_INTEGER:
               {
+                // printf("I\n");
                 int tInt = (double)json_integer_value(rData);
-                mpvu->integer = tInt;
                 size_t len = snprintf(NULL, 0, "%d", tInt) + 1;
-                mpvu->ptr = (char*)malloc(len * sizeof(char));
-                snprintf(mpvu->ptr, len, "%d", tInt);
+                ret2 = (char*)malloc(len * sizeof(char));
+                snprintf(ret2, len, "%d", tInt);
                 result = 0;
-
                 break;
               }
               case JSON_REAL:
               {
+                // printf("R\n");
                 double tFloat = (double)json_number_value(rData);
-                mpvu->floating = tFloat;
                 size_t len = snprintf(NULL, 0, "%f", tFloat) + 1;
-                mpvu->ptr = (char*)malloc(len * sizeof(char));
-                snprintf(mpvu->ptr, len, "%f", tFloat);
+                ret2 = (char*)malloc(len * sizeof(char));
+                snprintf(ret2, len, "%f", tFloat);
                 result = 0;
-                
                 break;
               }
               case JSON_TRUE:
               {
-                mpvu->floating = 1.0;
-                mpvu->integer = 1;
-                mpvu->ptr = strdup("true");
+                // printf("T\n");
+                size_t len = snprintf(NULL, 0, "%s", "true") + 1;
+                ret2 = (char*)malloc(len * sizeof(char));
+                snprintf(ret2, len, "%s", "true");    
                 result = 0;
-                
                 break;
               }
               case JSON_FALSE:
               {
-                mpvu->floating = 0.0;
-                mpvu->integer = 0;
-                mpvu->ptr = strdup("false");
+                // printf("F\n");
+                size_t len = snprintf(NULL, 0, "%s", "false") + 1;
+                ret2 = (char*)malloc(len * sizeof(char));
+                snprintf(ret2, len, "%s", "false");    
                 result = 0;
-                
                 break;
               }
               case JSON_OBJECT:
               case JSON_ARRAY:
               case JSON_NULL:
               {
-                printf("OTHER\n");
-                free(mpvu);
+                // printf("OTHER\n");
+                result = 2;
+                break;
+              }
+              default:
+              {
+                result = 3;
                 break;
               }
             }
+ 
           } else {
             // data: is an object, send back entire data string
-            mpvu->ptr = json_dumps(rData, JSON_COMPACT);
-            printf("Got ReP: %s\n", mpvu->ptr);
+            ret2 = json_dumps(rData, JSON_COMPACT);
             result = 0;
           }
 
-          *ret = mpvu;
-          free(mpv_rpc_ret);
-          json_decref(root);
-          goto cleanup;
         // Error Response
         } else if (rReqId == conn->reqId && errSuccess != 0) {
           dbgprintf(DBG_MPV_READ|DBG_DEBUG,
                     "Error after requesting\n%s\n",
                     mpv_rpc_ret);
-          free(mpv_rpc_ret);
-          json_decref(root);
-          goto cleanup;
-                              
+          result = 1;
+    
         } else {
-          dbgprintf(DBG_MPV_READ, "mpvignore %d:%d : '%s'\n", rReqId, conn->reqId, mpv_rpc_ret);
+          printf("mpvignore %d:%d : '%s'\n", rReqId, conn->reqId, mpv_rpc_ret);
         }
-        
-        free(mpv_rpc_ret);
-        json_decref(root);
 
+        mpvclean:
+          free(mpv_rpc_ret);
+          json_decref(rReqObj);
+          json_decref(rError);
+          json_decref(root);
+          if (result > -1) {
+            goto cleanup;
+          }
       } else {
         dbgprintf(DBG_ERROR, "Cannot Parse JSON: %s\n", mpv_rpc_ret);
       }
+      
     } else {
       dbgprintf(DBG_ERROR, "Singlet Unable to select FD: %d\n", selT);
+      conn->fdSelect = -1;
+      conn->connected = 0;
       // goto cleanup;
     }
   }
 
  cleanup:
   free(data);
-  // free(mpvu);
+  *ret = ret2;
   return result;
 }

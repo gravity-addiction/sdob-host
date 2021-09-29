@@ -15,6 +15,7 @@
 #include <sys/kd.h>
 #include <assert.h>
 #include <time.h>
+#include <pthread.h>
 #include <ctype.h> /* isalpha */
 #include "shared.h"
 #include "dbg/dbg.h"
@@ -584,6 +585,13 @@ static char* quotify(char* original, char** saved_replacement) {
   }
 }
 
+
+int nextRequestId(void) {
+  // printf("Handing Out ID %d\n", reqId);
+  int nextId = ++reqId;
+  if (reqId == reqTop) { reqId = 1; } // reset request ids
+  return nextId;
+}
 /*
 //---------------------
 // System Commands

@@ -21,6 +21,9 @@ char* VIDEOS_BASEPATH;
 
 int m_bQuit;
 int fbcp_running;
+unsigned int reqId;
+unsigned int reqTop;
+
 // Debugging Printout helper
 // #ifdef DEBUG
 // #define debug_print printf
@@ -93,6 +96,7 @@ void sendBeep();
 //-/ void fbcp_start();
 //-/ void fbcp_stop();
 static char* quotify(char* original, char** saved_replacement);
+int nextRequestId(void);
 
 #define MIN(a,b) \
  ({ __typeof__ (a) _a = (a); \

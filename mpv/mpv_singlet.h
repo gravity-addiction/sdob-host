@@ -5,14 +5,9 @@
 extern "C" {
 #endif // __cplusplus
 
-#include "mpv.h"
+#include "./mpv.h"
 
-unsigned int reqId;
-unsigned int reqTop;
-
-struct mpv_any_u * MPV_ANY_U_NEW();
-void MPV_ANY_U_FREE(struct mpv_any_u *mpvu);
-int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, struct mpv_any_u** ret);
+int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, char** ret);
 
 #ifdef __cplusplus
 }
