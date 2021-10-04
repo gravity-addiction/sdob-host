@@ -135,7 +135,7 @@ int mpv_fd_write(struct mpv_conn *conn, char *data, int bCancel) {
 
   // Check for reconnection
   if (mpv_fd_check(conn->fdSelect) > 0) {
-    printf("Write Connecting\n");
+    dbgprintf(DBG_MPV_WRITE, "%s\n", "Write Connecting");
     // mpv_socket_lastConn = millis();
     conn->fdSelect = mpv_socket_conn(conn, bCancel);
     if (conn->fdSelect == -1) {

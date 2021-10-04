@@ -15,14 +15,14 @@ extern "C" {
 
 #define DEBUG 0
 #define CLEAR(x, y) memset(x,'\0',y)
+#define MPV_REQUEST_ID_TOP UINT64_MAX
 
 // Videos Folder, config videos_path
 char* VIDEOS_BASEPATH;
 
 int m_bQuit;
 int fbcp_running;
-unsigned int reqId;
-unsigned int reqTop;
+uint64_t mpv_request_id;
 
 // Debugging Printout helper
 // #ifdef DEBUG
@@ -48,7 +48,7 @@ struct fileStruct {
 };
 
 struct threadArgs {
-  void* conn;
+  void* mpvHandle;
   void* context;
   int* bCancel;
 };
@@ -96,7 +96,8 @@ void sendBeep();
 //-/ void fbcp_start();
 //-/ void fbcp_stop();
 static char* quotify(char* original, char** saved_replacement);
-int nextRequestId(void);
+uint64_t nextRequestId(void);
+const char** splitCSV(char* line, char* sep);
 
 #define MIN(a,b) \
  ({ __typeof__ (a) _a = (a); \

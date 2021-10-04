@@ -140,7 +140,7 @@ int fd_is_connected(int fd)
 {
     unsigned char buf;
     int err = recv(fd, &buf, 1, MSG_PEEK | MSG_DONTWAIT);
-    printf("Connected: %d, Err: %d\n", err, errno);
+    // printf("Connected: %d, Err: %d\n", err, errno);
     return 1;
 }
 
@@ -586,12 +586,40 @@ static char* quotify(char* original, char** saved_replacement) {
 }
 
 
-int nextRequestId(void) {
+uint64_t nextRequestId(void) {
   // printf("Handing Out ID %d\n", reqId);
-  int nextId = ++reqId;
-  if (reqId == reqTop) { reqId = 1; } // reset request ids
+  uint64_t nextId = ++mpv_request_id;
+  if (mpv_request_id == MPV_REQUEST_ID_TOP) { mpv_request_id = 1; } // reset request ids
   return nextId;
 }
+
+const char** splitCSV(char* line, char* sep)
+{
+  int index=0;
+  const char** result = NULL;
+  char *lineA = malloc(strlen(line)+1);
+  strcpy(lineA, line);
+  char *tok = strtok(lineA, sep);
+  if (tok == NULL) {
+    *result = strdup(lineA);
+    index++;
+  } else {
+    while(tok != NULL) {
+      result = realloc(result, sizeof(char*)*(index+1));
+      char *dup = malloc(strlen(tok) + 1);
+      strcpy(dup, tok);
+      result[index++] = dup;
+      tok = strtok(NULL, sep);
+    }
+  }
+  // Need space to store the "terminating" NULL
+  // Thanks, BLUEPIXY, for pointing this out.
+  result = realloc(result, sizeof(char*)*(index+1));
+  result[index]=NULL;
+  free(lineA);
+  return result;
+}
+
 /*
 //---------------------
 // System Commands

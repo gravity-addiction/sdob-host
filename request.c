@@ -6,7 +6,7 @@ int main (int argc, char *argv [])
       //  Socket to talk to server
       void *context = zmq_ctx_new ();
       void *subscriber = zmq_socket (context, ZMQ_REQ);
-      int rc = zmq_connect (subscriber, "tcp://192.168.126.85:5557");
+      int rc = zmq_connect (subscriber, "tcp://192.168.126.85:5558");
       assert (rc == 0);
       
       // rc = s_send (subscriber, "\"get_property\", \"time-pos\"");

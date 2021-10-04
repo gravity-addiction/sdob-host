@@ -49,7 +49,7 @@ int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, char** ret) 
     
     // Check for reconnection
     if (mpv_fd_check(conn->fdSelect) > 0) {
-      printf("reconnecting\n");
+      dbgprintf(DBG_MPV_WRITE, "%s\n", "Reconnecting singlet");
       conn->connected = 0;
       // mpv_socket_lastConn = millis();
       conn->fdSelect = mpv_socket_conn(conn, bCancel);
@@ -101,7 +101,7 @@ int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, char** ret) 
         }
 
         if (rReqId == conn->reqId && errSuccess == 0) {
-          printf("mpvread %d:%d : '%s'\n", rReqId, conn->reqId, mpv_rpc_ret);
+          dbgprintf(DBG_MPV_READ, "mpvread %d:%d : '%s'\n", rReqId, conn->reqId, mpv_rpc_ret);
 
           json_t *rData = json_object_get(root, "data");
           if (rData == NULL) {
@@ -190,7 +190,7 @@ int mpvSocketSinglet(struct mpv_conn *conn, char* cmd, int bCancel, char** ret) 
           result = 1;
     
         } else {
-          printf("mpvignore %d:%d : '%s'\n", rReqId, conn->reqId, mpv_rpc_ret);
+          dbgprintf(DBG_MPV_READ, "mpvignore %d:%d : '%s'\n", rReqId, conn->reqId, mpv_rpc_ret);
         }
 
         mpvclean:
