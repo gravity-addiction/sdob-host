@@ -55,11 +55,18 @@ void *mpvTimerThread(void * arguments)
     char* mpvRet = mpv_get_property_string(args->mpvHandle, "time-pos");
     if (mpvRet != NULL) { // && strcmp(lastMpvRet, mpvRet) != 0) {
       printf("Time: %s\n", mpvRet);
+      if (lastMpvRet != NULL) {
+        free(lastMpvRet);
+        lastMpvRet = NULL;
+      }
       lastMpvRet = strdup(mpvRet);
       s_send(timer, mpvRet);
     }
     usleep(1000000);
   }
+  if (lastMpvRet != NULL) {
+    free(lastMpvRet);
+  }  
   dbgprintf(DBG_DEBUG, "%s\n", "Shutting Down Timer Thread");
   zmq_close(timer);
   return 0;
