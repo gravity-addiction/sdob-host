@@ -39,6 +39,46 @@ void mpvZeroMQSendEventName(void *zmq_conn, mpv_event *event) {
   }
 }
 
+void mpvZeroMQSendVideoInfo(void *mpvHandle, void *zmq_conn)
+{
+  // Duration
+  char* mpvDur = mpv_get_property_string(mpvHandle, "duration");
+  if (mpvDur != NULL) {
+    size_t dlen = snprintf(NULL, 0, "duration,%s", mpvDur) + 1;
+    char *data = (char*)malloc(dlen * sizeof(char));
+    snprintf(data, dlen, "duration,%s", mpvDur);
+    s_send(zmq_conn, data);
+    mpv_free(mpvDur);
+  }
+
+  // is_loaded
+
+  // is_player
+
+  // is_seeking
+
+  // fps
+
+  // pbrate
+  double mpvSpeed = mpv_get_property_double(mpvHandle, "speed");
+  size_t dlen = snprintf(NULL, 0, "speed,%f", mpvSpeed) + 1;
+  char *data = (char*)malloc(dlen * sizeof(char));
+  snprintf(data, dlen, "speed,%f", mpvSpeed);
+  s_send(zmq_conn, data);
+
+  // folder
+
+  // file
+  char* mpvFilename = mpv_get_property_string(mpvHandle, "filename");
+  if (mpvFilename != NULL) {
+    size_t dlen = snprintf(NULL, 0, "filename,%s", mpvFilename) + 1;
+    char *data = (char*)malloc(dlen * sizeof(char));
+    snprintf(data, dlen, "filename,%s", mpvFilename);
+    s_send(zmq_conn, data);
+    mpv_free(mpvFilename);
+  }
+}
+
 void *mpvZeroMQThread(void * arguments)
 {
   
@@ -140,14 +180,8 @@ void *mpvZeroMQThread(void * arguments)
       case MPV_EVENT_FILE_LOADED: {
         // Send standard event name
         mpvZeroMQSendEventName(command_events, event);
+        mpvZeroMQSendVideoInfo(args->mpvHandle, command_events);
 
-        char* mpvRet = mpv_get_property_string(args->mpvHandle, "duration");
-        if (mpvRet != NULL) {
-          size_t dlen = snprintf(NULL, 0, "duration,%s", mpvRet) + 1;
-          char *data = (char*)malloc(dlen * sizeof(char));
-          snprintf(data, dlen, "duration,%s", mpvRet);
-          s_send(command_events, data);
-        }
       }
       break;
       default: {

@@ -50,10 +50,12 @@ void *mpvTimerThread(void * arguments)
   rc = zmq_bind(timer, "tcp://192.168.126.85:5555");
   assert (rc == 0);
   // Grab MPV Events, sent in JSON format
+  char* lastMpvRet = NULL;
   while(!(*args->bCancel)) {
     char* mpvRet = mpv_get_property_string(args->mpvHandle, "time-pos");
-    if (mpvRet != NULL) {
+    if (mpvRet != NULL && strcmp(lastMpvRet, mpvRet) != 0) {
       printf("Time: %s\n", mpvRet);
+      strlcpy(lastMpvRet, mpvRet, sizeof(mpvRet));
       s_send(timer, mpvRet);
     }
     usleep(1000000);

@@ -30,6 +30,8 @@ mpv_handle * mpv_handle_init() {
   mpv_set_option_string(ctx, "video-sync", "display-resample");
   mpv_set_option_string(ctx, "vd-lavc-dr", "yes");
   mpv_set_option_string(ctx, "fullscreen", "yes");
+  mpv_set_option_string(ctx, "keep-open", "yes");
+
   int val = 1;
   mpv_set_option(ctx, "osc", MPV_FORMAT_FLAG, &val);
 
