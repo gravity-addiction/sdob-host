@@ -63,7 +63,7 @@ void mpvZeroMQSendVideoInfo(void *mpvHandle, void *zmq_conn)
   double mpvSpeed = 1.0;
   if (mpv_get_property(mpvHandle, "speed", MPV_FORMAT_DOUBLE, &mpvSpeed) < 0) {
     dbgprintf(DBG_ERROR, "%s\n", "Cannot get mpv property speed");
-
+  }
   size_t dlen = snprintf(NULL, 0, "speed,%f", mpvSpeed) + 1;
   char *data = (char*)malloc(dlen * sizeof(char));
   snprintf(data, dlen, "speed,%f", mpvSpeed);
