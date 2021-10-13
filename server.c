@@ -53,7 +53,7 @@ void *mpvTimerThread(void * arguments)
   char* lastMpvRet = NULL;
   while(!(*args->bCancel)) {
     char* mpvRet = mpv_get_property_string(args->mpvHandle, "time-pos");
-    if (mpvRet != NULL && strcmp(lastMpvRet, mpvRet) != 0) {
+    if (mpvRet != NULL) { // && strcmp(lastMpvRet, mpvRet) != 0) {
       printf("Time: %s\n", mpvRet);
       strlcpy(lastMpvRet, mpvRet, sizeof(mpvRet));
       s_send(timer, mpvRet);
