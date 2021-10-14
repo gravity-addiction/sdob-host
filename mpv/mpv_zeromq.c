@@ -45,10 +45,8 @@ void mpvZeroMQSendVideoInfo(void *mpvHandle, void *zmq_conn)
   // Duration
   char* mpvDur = mpv_get_property_string(mpvHandle, "duration");
   if (mpvDur != NULL) {
-    size_t dlen = snprintf(NULL, 0, "duration,%s", mpvDur) + 1;
-    char *data = (char*)malloc(dlen * sizeof(char));
-    snprintf(data, dlen, "duration,%s", mpvDur);
-    s_send(zmq_conn, data);
+    s_sendmore(zmq_conn, "duration");
+    s_send(zmq_conn, mpvDur);
     mpv_free(mpvDur);
   }
 
@@ -76,10 +74,8 @@ void mpvZeroMQSendVideoInfo(void *mpvHandle, void *zmq_conn)
   // file
   char* mpvFilename = mpv_get_property_string(mpvHandle, "filename");
   if (mpvFilename != NULL) {
-    size_t dlen = snprintf(NULL, 0, "filename,%s", mpvFilename) + 1;
-    char *data = (char*)malloc(dlen * sizeof(char));
-    snprintf(data, dlen, "filename,%s", mpvFilename);
-    s_send(zmq_conn, data);
+    s_sendmore(zmq_conn, "filename");
+    s_send(zmq_conn, mpvFilename);
     mpv_free(mpvFilename);
   }
 }
@@ -89,9 +85,6 @@ void *mpvZeroMQThread(void * arguments)
   
   struct threadArgs *args = (struct threadArgs*)arguments;
   int rc;
-
-  void *command_events = zmq_socket(args->context, ZMQ_PUB);
-  rc = zmq_bind (command_events, "tcp://*:5556");
 
   while(!(*args->bCancel)) {
     mpv_event *event = mpv_wait_event(args->mpvHandle, 2);
@@ -125,8 +118,8 @@ void *mpvZeroMQThread(void * arguments)
             strLen = snprintf(NULL, 0, snFlag, event->reply_userdata, *(char **)prop->data) + 1;
             strReply = (char*)malloc(strLen * sizeof(char *));
             snprintf(strReply, strLen, snFlag, event->reply_userdata, *(char **)prop->data);
-            s_sendmore(command_events, "event");
-            s_send(command_events, strReply);
+            s_sendmore(args->quadfive, "event");
+            s_send(args->quadfive, strReply);
           break;
 
           case MPV_FORMAT_INT64:
@@ -135,8 +128,8 @@ void *mpvZeroMQThread(void * arguments)
             strLen = snprintf(NULL, 0, snFlag, event->reply_userdata, *(int64_t*)prop->data) + 1;
             strReply = (char*)malloc(strLen * sizeof(char *));
             snprintf(strReply, strLen, snFlag, event->reply_userdata, *(int64_t*)prop->data);
-            s_sendmore(command_events, "event");
-            s_send(command_events, strReply);            
+            s_sendmore(args->quadfive, "event");
+            s_send(args->quadfive, strReply);            
           break;
 
           case MPV_FORMAT_DOUBLE: {
@@ -145,8 +138,8 @@ void *mpvZeroMQThread(void * arguments)
             strLen = snprintf(NULL, 0, snFlag, event->reply_userdata, *(double*)prop->data) + 1;
             strReply = (char*)malloc(strLen * sizeof(char *));
             snprintf(strReply, strLen, snFlag, event->reply_userdata, *(double*)prop->data);
-            s_sendmore(command_events, "event");
-            s_send(command_events, strReply);   
+            s_sendmore(args->quadfive, "event");
+            s_send(args->quadfive, strReply);   
           }
           break;
 
@@ -167,7 +160,7 @@ void *mpvZeroMQThread(void * arguments)
       break;
       case MPV_EVENT_IDLE: {
         // Send standard event name
-        mpvZeroMQSendEventName(command_events, event);
+        mpvZeroMQSendEventName(args->quadfive, event);
         /*const char *cmd[] = {"loadfile", "/home/vid/3001_1.MTS", NULL};
         uint64_t retVal = 1;
         rc = mpv_command_async(args->mpvHandle, retVal, cmd);
@@ -180,20 +173,20 @@ void *mpvZeroMQThread(void * arguments)
       break;
       case MPV_EVENT_SHUTDOWN:
         // Send standard event name
-        mpvZeroMQSendEventName(command_events, event);
+        mpvZeroMQSendEventName(args->quadfive, event);
         printf("Shutdown\n");
         (*args->bCancel) = 1;
 
       break;
       case MPV_EVENT_FILE_LOADED: {
         // Send standard event name
-        mpvZeroMQSendEventName(command_events, event);
-        mpvZeroMQSendVideoInfo(args->mpvHandle, command_events);
+        mpvZeroMQSendEventName(args->quadfive, event);
+        mpvZeroMQSendVideoInfo(args->mpvHandle, args->quadfive);
 
       }
       break;
       default: {
-        mpvZeroMQSendEventName(command_events, event);
+        mpvZeroMQSendEventName(args->quadfive, event);
       }
       break;
     }
