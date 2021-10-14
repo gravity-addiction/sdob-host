@@ -194,7 +194,6 @@ void *mpvZeroMQThread(void * arguments)
 
 shutdown:
   dbgprintf(DBG_DEBUG, "%s\n", "Shutting Down MPV Thread");  
-  zmq_close(command_events);
   return 0;
 }
 
