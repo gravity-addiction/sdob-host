@@ -59,6 +59,7 @@ void *mpvTimerThread(void * arguments)
         lastMpvRet = NULL;
       }
       lastMpvRet = strdup(mpvRet);
+      s_sendmore(timer, "timer");
       s_send(timer, mpvRet);
     }
     usleep(1000000);
