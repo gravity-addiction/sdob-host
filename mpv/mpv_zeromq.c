@@ -117,7 +117,7 @@ void *mpvZeroMQThread(void * arguments)
             strLen = snprintf(NULL, 0, snFlag, event->reply_userdata, *(char **)prop->data) + 1;
             strReply = (char*)malloc(strLen * sizeof(char *));
             snprintf(strReply, strLen, snFlag, event->reply_userdata, *(char **)prop->data);
-            s_sendmore(args->quadfive, event->reply_userdata);
+            s_sendmore(args->quadfive, "event");
             s_send(args->quadfive, strReply);
           break;
 
@@ -127,7 +127,7 @@ void *mpvZeroMQThread(void * arguments)
             strLen = snprintf(NULL, 0, snFlag, event->reply_userdata, *(int64_t*)prop->data) + 1;
             strReply = (char*)malloc(strLen * sizeof(char *));
             snprintf(strReply, strLen, snFlag, event->reply_userdata, *(int64_t*)prop->data);
-            s_sendmore(args->quadfive, event->reply_userdata);
+            s_sendmore(args->quadfive, "event");
             s_send(args->quadfive, strReply);            
           break;
 
@@ -137,7 +137,7 @@ void *mpvZeroMQThread(void * arguments)
             strLen = snprintf(NULL, 0, snFlag, event->reply_userdata, *(double*)prop->data) + 1;
             strReply = (char*)malloc(strLen * sizeof(char *));
             snprintf(strReply, strLen, snFlag, event->reply_userdata, *(double*)prop->data);
-            s_sendmore(args->quadfive, event->reply_userdata);
+            s_sendmore(args->quadfive, "event");
             s_send(args->quadfive, strReply);   
           }
           break;
