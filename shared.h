@@ -49,6 +49,7 @@ struct fileStruct {
 
 struct threadArgs {
   void* mpvHandle;
+  void* quadfive;
   void* context;
   int* bCancel;
 };

@@ -44,11 +44,6 @@ void signal_sigint(int sig)
 void *mpvTimerThread(void * arguments)
 {
   struct threadArgs *args = (struct threadArgs*)arguments;
-  int rc;
-
-  void *timer = zmq_socket(args->context, ZMQ_PUB);
-  rc = zmq_bind(timer, "tcp://192.168.126.85:5555");
-  assert (rc == 0);
   // Grab MPV Events, sent in JSON format
   char* lastMpvRet = NULL;
   while(!(*args->bCancel)) {
@@ -59,8 +54,8 @@ void *mpvTimerThread(void * arguments)
         lastMpvRet = NULL;
       }
       lastMpvRet = strdup(mpvRet);
-      s_sendmore(timer, "timer");
-      s_send(timer, mpvRet);
+      s_sendmore(args->quadfive, "timer");
+      s_send(args->quadfive, mpvRet);
     }
     usleep(1000000);
   }
@@ -68,7 +63,6 @@ void *mpvTimerThread(void * arguments)
     free(lastMpvRet);
   }  
   dbgprintf(DBG_DEBUG, "%s\n", "Shutting Down Timer Thread");
-  zmq_close(timer);
   return 0;
 }
 
@@ -313,6 +307,11 @@ int main(int argc, char* args[])
   pthread_t mpv_tid, timer_tid, writer_tid;
   int rc;
 
+  // Open :5555 for publishing
+  quadfive = zmq_socket(args->context, ZMQ_PUB);
+  rc = zmq_bind(quadfive, "tcp://192.168.126.85:5555");
+  assert (rc == 0);
+
   // Open :5559 for one-way requests
   void *command_raw = zmq_socket (context, ZMQ_PULL);
   rc = zmq_bind (command_raw, "tcp://192.168.126.85:5559");
@@ -324,6 +323,7 @@ int main(int argc, char* args[])
   // Assign pointers for multi-threads
   struct threadArgs threadpassArgs;
   threadpassArgs.mpvHandle = mpvHandle;
+  threadpassArgs.quadfive = quadfive;
   threadpassArgs.context = context;
   threadpassArgs.bCancel = &m_bQuit;
 
@@ -346,6 +346,7 @@ int main(int argc, char* args[])
   printf("Shutting Down Main\n");
 
   zmq_close (command_raw);
+  zmq_close (quadfive);
   mpv_handle_destroy(mpvHandle);
 
   pthread_join(mpv_tid, NULL); 
