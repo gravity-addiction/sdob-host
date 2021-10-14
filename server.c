@@ -308,7 +308,7 @@ int main(int argc, char* args[])
   int rc;
 
   // Open :5555 for publishing
-  quadfive = zmq_socket(args->context, ZMQ_PUB);
+  quadfive = zmq_socket(context, ZMQ_PUB);
   rc = zmq_bind(quadfive, "tcp://192.168.126.85:5555");
   assert (rc == 0);
 
