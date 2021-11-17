@@ -6,7 +6,7 @@ int main (int argc, char *argv [])
       //  Socket to talk to server
       void *context = zmq_ctx_new ();
       void *subscriber = zmq_socket(context, ZMQ_PUSH);
-      int rc = zmq_connect (subscriber, "tcp://192.168.126.85:5559");
+      int rc = zmq_connect (subscriber, "tcp://flittermouse.local:5559");
       assert (rc == 0);
       // s_sleep(2000);
       printf("SENDING\n%s", argv[1]);

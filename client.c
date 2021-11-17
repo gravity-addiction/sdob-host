@@ -6,7 +6,7 @@ int main (int argc, char *argv [])
     printf ("Collecting updates...\n");
     void *context = zmq_ctx_new ();
     void *subscriber = zmq_socket (context, ZMQ_SUB);
-    int rc = zmq_connect (subscriber, "tcp://192.168.126.85:5556");
+    int rc = zmq_connect (subscriber, "tcp://sdob401.local:4011");
     assert (rc == 0);
 
     //  Subscribe to zipcode, default is NYC, 10001

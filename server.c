@@ -75,6 +75,7 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
   char * findSep = strstr(msg, sep);
   const char** result;
   if (findSep != NULL) {
+    printf("Splitting");
     result = splitCSV(msg, sep);
     // free(msg);
   } else {
@@ -165,6 +166,7 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
     } else if (getSet == 2) {
       rcCmd = mpv_set_property_async(mpvHandle, nextId, name, formatFlag, data);
     } else {
+      printf("NextID: %lu\n", nextId);
       rcCmd = mpv_command_async(mpvHandle, nextId, cmd);
     }
     
@@ -215,7 +217,9 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
     } else if (getSet == 2) {
       rcCmd = mpv_set_property(mpvHandle, name, formatFlag, data);
     } else {
-      rcCmd = mpv_command(mpvHandle, cmd);
+      printf("Here\n");
+      printf("Run Cmd: %s\n", data);
+      rcCmd = mpv_command(mpvHandle, data);
     }
   }
 
@@ -239,7 +243,7 @@ void *mpvWriterThread(void * arguments)
 
   // Open :5558 for sync requests
   void *command_req = zmq_socket (args->context, ZMQ_REP);
-  rc = zmq_bind (command_req, "tcp://192.168.126.85:5558");
+  rc = zmq_bind (command_req, "tcp://*:5558");
   assert (rc == 0); 
 
   while(!(*args->bCancel)) {
@@ -309,12 +313,12 @@ int main(int argc, char* args[])
 
   // Open :5555 for publishing
   quadfive = zmq_socket(context, ZMQ_PUB);
-  rc = zmq_bind(quadfive, "tcp://192.168.126.85:5555");
+  rc = zmq_bind(quadfive, "tcp://*:5555");
   assert (rc == 0);
 
   // Open :5559 for one-way requests
   void *command_raw = zmq_socket (context, ZMQ_PULL);
-  rc = zmq_bind (command_raw, "tcp://192.168.126.85:5559");
+  rc = zmq_bind (command_raw, "tcp://*:5559");
   assert (rc == 0);
 
   // Create MPV Player Handle

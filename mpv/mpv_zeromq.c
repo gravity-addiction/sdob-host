@@ -179,11 +179,15 @@ void *mpvZeroMQThread(void * arguments)
       break;
       case MPV_EVENT_FILE_LOADED: {
         // Send standard event name
+        printf("File Loaded\n");
         mpvZeroMQSendEventName(args->quadfive, event);
-        mpvZeroMQSendVideoInfo(args->mpvHandle, args->quadfive);
-
+        // mpvZeroMQSendVideoInfo(args->mpvHandle, args->quadfive);
       }
       break;
+
+      case MPV_EVENT_METADATA_UPDATE: {
+        mpvZeroMQSendVideoInfo(args->mpvHandle, args->quadfive);
+      }
       default: {
         mpvZeroMQSendEventName(args->quadfive, event);
       }

@@ -31,6 +31,8 @@ mpv_handle * mpv_handle_init() {
   mpv_set_option_string(ctx, "vd-lavc-dr", "yes");
   mpv_set_option_string(ctx, "fullscreen", "yes");
   mpv_set_option_string(ctx, "keep-open", "yes");
+  mpv_set_option_string(ctx, "all_formats", "max");
+  mpv_set_option_string(ctx, "hls-bitrate", "max");
 
   int val = 1;
   mpv_set_option(ctx, "osc", MPV_FORMAT_FLAG, &val);
