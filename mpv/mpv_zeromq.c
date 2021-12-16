@@ -188,6 +188,7 @@ void *mpvZeroMQThread(void * arguments)
       case MPV_EVENT_METADATA_UPDATE: {
         mpvZeroMQSendVideoInfo(args->mpvHandle, args->quadfive);
       }
+      break;
       default: {
         mpvZeroMQSendEventName(args->quadfive, event);
       }

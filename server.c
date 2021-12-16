@@ -75,7 +75,6 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
   char * findSep = strstr(msg, sep);
   const char** result;
   if (findSep != NULL) {
-    printf("Splitting");
     result = splitCSV(msg, sep);
     // free(msg);
   } else {
@@ -145,6 +144,8 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
       dataInt = 0;
       data = &dataInt;
     }
+  // } else if (tCnt > 1 && strcmp(*result, "video") == 0) {
+
   } else {
     cmd = result;
   }
@@ -181,6 +182,11 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
       void *dRet = NULL;
       char * snFlag = "%s";
       printf("Asking: %s\n", name);
+      if (strcmp(name, "video-player") == 0) {
+        printf("Send Video Setup\n");
+        goto cleanup;
+      }
+
       rcCmd = mpv_get_property(mpvHandle, name, formatFlag, &dRet);
 
       if (formatFlag == MPV_FORMAT_STRING) {
@@ -253,6 +259,7 @@ void *mpvWriterThread(void * arguments)
       msg[size < 4096 ? size : 4096 - 1] = '\0';
       char* retData = NULL;
       int rcCmd = libmpv2_parse_msg(args->mpvHandle, msg, 0, &retData);
+      printf("Got Msg: %s\n", msg);
 
       if (rcCmd > -1) {
         printf("Sending Reply: %s\n", retData);
