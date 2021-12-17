@@ -20,7 +20,7 @@
 int m_bSigInt;
 void signal_sigint(int sig);
 int main(int argc, char* args[]);
-
+static pthread_mutex_t quadfiveLock;
 
 // SIGINT handler
  // can be called asynchronously
@@ -54,8 +54,10 @@ void *mpvTimerThread(void * arguments)
         lastMpvRet = NULL;
       }
       lastMpvRet = strdup(mpvRet);
+      pthread_mutex_lock(&quadfiveLock);
       s_sendmore(args->quadfive, "timer");
       s_send(args->quadfive, mpvRet);
+      pthread_mutex_unlock(&quadfiveLock);
     }
     usleep(1000000);
   }
@@ -150,6 +152,13 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
     cmd = result;
   }
 
+  // Echo input back out to quadfive
+  if (getSet == 2 && name) {
+    pthread_mutex_lock(&quadfiveLock);
+    s_sendmore(quadfive, name);
+    s_send(quadfive, (char*)*(result));
+    pthread_mutex_unlock(&quadfiveLock);  
+  }
 // printf("Async: %d, getSet: %d\n", async, getSet);
   // Execute MPV Command
   int rcCmd = -1;
@@ -223,7 +232,6 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
     } else if (getSet == 2) {
       rcCmd = mpv_set_property(mpvHandle, name, formatFlag, data);
     } else {
-      printf("Here\n");
       printf("Run Cmd: %s\n", data);
       rcCmd = mpv_command(mpvHandle, data);
     }
