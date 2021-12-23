@@ -8,13 +8,12 @@
 #include <jansson.h> // JSON Parsing
 #include <signal.h> // catching ctrl-c signal to quit
 #include <time.h> // system time clocks
-#include <mpv/client.h>
 
 #include "./shared.h"
 #include "./dbg/dbg.h"
 #include "./zhelpers.h"
 #include "./mpv/mpv_zeromq.h"
-#include "./mpv/mpv_lib.h"
+
 
 
 int m_bSigInt;
@@ -119,13 +118,8 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
   } else if (tCnt > 2 && strcmp(*result, "set_prop_string") == 0) {
     name = (char*)*(++result);
     getSet = 2;
-    printf("HerA\n");
     formatFlag = MPV_FORMAT_STRING;
-
-    printf("HerB\n");
     data = (char*)*(++result);
-
-    printf("HerC\n");
   } else if (tCnt > 2 && strcmp(*result, "set_prop_int") == 0) {
     name = (char*)*(++result);
     getSet = 2;
@@ -159,8 +153,6 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
 
   // Echo input back out to quadfive
   if (getSet == 2 && name) {
-
-    printf("HerDD\n");
     pthread_mutex_lock(&quadfiveLock);
     s_sendmore(quadfive, name);
     s_send(quadfive, (char*)*(result));
@@ -172,7 +164,6 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
   // Execute MPV Command
   int rcCmd = -1;
   if (async == 1) {
-    printf("Going Async\n");
     // Assign next Request ID
     uint64_t nextId = nextRequestId();
     size_t nextLen = snprintf(NULL, 0, "%ld", nextId) + 1;
@@ -184,8 +175,7 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
       printf("Sending Async Msg::%s--%lu-%d\n", name, nextId, formatFlag);
       
     } else if (getSet == 2) {
-      printf("Here11 - %lu, %s Flag: %d\n%s\n", nextId, name, formatFlag, data);
-      rcCmd = mpv_set_property_async(mpvHandle, nextId, name, formatFlag, &data);
+      rcCmd = mpv_set_property_async(mpvHandle, nextId, name, formatFlag, data);
     } else {
       printf("NextID: %lu\n", nextId);
       rcCmd = mpv_command_async(mpvHandle, nextId, cmd);
@@ -241,8 +231,7 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
       printf("Return Msg::%s--%d\n", *ret, formatFlag);
       // mpv_free(dRet);
     } else if (getSet == 2) {
-      printf("Here22\n");
-      rcCmd = mpv_set_property(mpvHandle, name, formatFlag, &data);
+      rcCmd = mpv_set_property(mpvHandle, name, formatFlag, data);
     } else {
       printf("Run Cmd: %s\n", data);
       rcCmd = mpv_command(mpvHandle, data);

@@ -135,7 +135,7 @@ void *mpvZeroMQThread(void * arguments)
         size_t strLen;
         char *strReply = NULL;
 
-        printf("Reply %ld - %d - %ld\n", event->reply_userdata, event->error, eFormat); // *(double *)event->data);
+        printf("Reply %lu - %d - %lu\n", event->reply_userdata, event->error, eFormat); // *(double *)event->data);
         switch (eFormat) {
           case MPV_FORMAT_NONE:
             //printf("None Reply %ld - %d - %d\n", event->reply_userdata, event->error, (*(char *)event->data));
@@ -154,7 +154,7 @@ void *mpvZeroMQThread(void * arguments)
           break;
 
           case MPV_FORMAT_INT64:
-            printf("Int Reply %ld - %d - %ld\n", event->reply_userdata, event->error, *(int64_t*)prop->data);
+            printf("Int Reply %lu - %d - %ld\n", event->reply_userdata, event->error, *(int64_t*)prop->data);
             snFlag = "reply,%d,%ld";
             strLen = snprintf(NULL, 0, snFlag, event->reply_userdata, *(int64_t*)prop->data) + 1;
             strReply = (char*)malloc(strLen * sizeof(char *));
@@ -164,7 +164,7 @@ void *mpvZeroMQThread(void * arguments)
           break;
 
           case MPV_FORMAT_DOUBLE: {
-            printf("Dbl Reply %ld - %d - %f\n", event->reply_userdata, event->error, *(double*)prop->data);
+            printf("Dbl Reply %lu - %d - %f\n", event->reply_userdata, event->error, *(double*)prop->data);
             snFlag = "reply,%d,%f";
             strLen = snprintf(NULL, 0, snFlag, event->reply_userdata, *(double*)prop->data) + 1;
             strReply = (char*)malloc(strLen * sizeof(char *));
@@ -175,7 +175,7 @@ void *mpvZeroMQThread(void * arguments)
           break;
 
           case MPV_FORMAT_NODE: {
-            printf("Noded %ld - Err: %d\n", event->reply_userdata, event->error);
+            printf("Noded %lu - Err: %d\n", event->reply_userdata, event->error);
             if (event->error == 0) {
               printf("Good: %s\n", *(char **)prop->data);
             }
@@ -184,7 +184,7 @@ void *mpvZeroMQThread(void * arguments)
           case MPV_FORMAT_NODE_ARRAY:
           case MPV_FORMAT_NODE_MAP:
           case MPV_FORMAT_BYTE_ARRAY:
-            printf("Other Reply %ld - %d\n%s: %s\n", event->reply_userdata, event->error, *(char **)event->data, *(char **)prop->data);
+            printf("Other Reply %lu - %d\n%s: %s\n", event->reply_userdata, event->error, *(char **)event->data, *(char **)prop->data);
           break;
         }
       }

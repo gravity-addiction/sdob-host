@@ -42,8 +42,8 @@ int main(int argc, char* argv[])
 
   m_bSigInt = 0; // Exiting sigint
   m_bQuit = 0; // Global quitter flag, 1 to quit
-  reqId = 1; // MPV request_id counter
-  reqTop = 2147483647; // MPV request_id maximum
+  int reqId = 1; // MPV request_id counter
+  int reqTop = 2147483647; // MPV request_id maximum
 
   // Debug printing support
   init_dbg();
@@ -63,19 +63,23 @@ printf("YY\n");
   // the player (and e.g. close the window).
   mpv_set_option_string(ctx, "input-default-bindings", "yes");
   mpv_set_option_string(ctx, "input-vo-keyboard", "yes");
-  mpv_set_option_string(ctx, "deband", "no");
-  mpv_set_option_string(ctx, "interpolation", "no");
-  mpv_set_option_string(ctx, "vo", "gpu");
-  mpv_set_option_string(ctx, "hwdec", "vaapi");
-  mpv_set_option_string(ctx, "hwdec-codecs", "all");
-  mpv_set_option_string(ctx, "dscale", "bilinear");
-  mpv_set_option_string(ctx, "opengl-pbo", "yes");
-  mpv_set_option_string(ctx, "scale", "bilinear");
-  mpv_set_option_string(ctx, "video-sync", "display-resample");
-  mpv_set_option_string(ctx, "vd-lavc-dr", "yes");
+  // mpv_set_option_string(ctx, "deband", "no");
+  // mpv_set_option_string(ctx, "interpolation", "no");
+  // mpv_set_option_string(ctx, "vo", "rpi");
+  mpv_set_option_string(ctx, "hwdec", "mmal");
+  // mpv_set_option_string(ctx, "hwdec-codecs", "all");
+  // mpv_set_option_string(ctx, "dscale", "bilinear");
+  // mpv_set_option_string(ctx, "opengl-pbo", "yes");
+  // mpv_set_option_string(ctx, "scale", "bilinear");
+  // mpv_set_option_string(ctx, "video-sync", "display-resample");
+  // mpv_set_option_string(ctx, "vd-lavc-dr", "yes");
   mpv_set_option_string(ctx, "fullscreen", "yes");
+  mpv_set_option_string(ctx, "rpi-background", "yes");
+  mpv_set_option_string(ctx, "screenshot-format", "png");
+  mpv_set_option_string(ctx, "ytdl-format", "bestvideo[height<=?1080][fps<=?30][vcodec!=?vp9]+bestaudio/best");
+  mpv_set_option_string(ctx, "alsa-buffer-time", "800000");
   int val = 1;
-  mpv_set_option(ctx, "osc", MPV_FORMAT_FLAG, &val);
+  // mpv_set_option(ctx, "osc", MPV_FORMAT_FLAG, &val);
 printf("ZZ\n");
   // Some minor options can only be set before mpv_initialize().
   rc = mpv_initialize(ctx);

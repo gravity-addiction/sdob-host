@@ -60,7 +60,7 @@ int mpv_fd_check(int fd) {
 
 struct mpv_conn * MPV_CONN_INIT() {
   struct mpv_conn *conn = (struct mpv_conn *)malloc(sizeof(struct mpv_conn));
-  conn->socket_path = "/opt/sdobox/mpv.socket";
+  conn->socket_path = "/tmp/mpv.socket";
   conn->connected = 0;
   conn->fdSelect = -1;
   // conn->fdSet;
@@ -212,6 +212,7 @@ int mpv_set_prop_int(struct mpv_conn *conn, char* prop, int prop_val) {
 }
 
 int mpv_set_prop_double(struct mpv_conn *conn, char* prop, double prop_val) {
+  printf("Setting Dbl %s %f\n", prop, prop_val);
   return mpv_fmt_cmd(conn, "set %s %f\n", prop, prop_val);
 }
 
