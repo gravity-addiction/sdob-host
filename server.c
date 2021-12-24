@@ -97,6 +97,7 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
   char* name = NULL; // prop name, only for getSet = 2
   const char ** cmd = NULL; // data to send to mpv
   void* data;
+  char* dataStr;
   int dataInt;
   double dataDbl;
 
@@ -119,13 +120,10 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
   } else if (tCnt > 2 && strcmp(*result, "set_prop_string") == 0) {
     name = (char*)*(++result);
     getSet = 2;
-    printf("HerA\n");
     formatFlag = MPV_FORMAT_STRING;
+    dataStr = (char*)*(++result);
+    data = &dataStr;
 
-    printf("HerB\n");
-    data = (char*)*(++result);
-
-    printf("HerC\n");
   } else if (tCnt > 2 && strcmp(*result, "set_prop_int") == 0) {
     name = (char*)*(++result);
     getSet = 2;
@@ -160,7 +158,6 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
   // Echo input back out to quadfive
   if (getSet == 2 && name) {
 
-    printf("HerDD\n");
     pthread_mutex_lock(&quadfiveLock);
     s_sendmore(quadfive, name);
     s_send(quadfive, (char*)*(result));
@@ -184,8 +181,7 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
       printf("Sending Async Msg::%s--%lu-%d\n", name, nextId, formatFlag);
       
     } else if (getSet == 2) {
-      printf("Here11 - %lu, %s Flag: %d\n%s\n", nextId, name, formatFlag, data);
-      rcCmd = mpv_set_property_async(mpvHandle, nextId, name, formatFlag, &data);
+      rcCmd = mpv_set_property_async(mpvHandle, nextId, name, formatFlag, data);
     } else {
       printf("NextID: %lu\n", nextId);
       rcCmd = mpv_command_async(mpvHandle, nextId, cmd);
@@ -203,7 +199,6 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
       char * snFlag = "%s";
       printf("Asking: %s\n", name);
       if (strcmp(name, "video-player") == 0) {
-        printf("Send Video Setup\n");
         goto cleanup;
       }
 
@@ -241,8 +236,7 @@ int libmpv2_parse_msg(mpv_handle* mpvHandle, char* msg, int async, char** ret) {
       printf("Return Msg::%s--%d\n", *ret, formatFlag);
       // mpv_free(dRet);
     } else if (getSet == 2) {
-      printf("Here22\n");
-      rcCmd = mpv_set_property(mpvHandle, name, formatFlag, &data);
+      rcCmd = mpv_set_property(mpvHandle, name, formatFlag, data);
     } else {
       printf("Run Cmd: %s\n", data);
       rcCmd = mpv_command(mpvHandle, data);
