@@ -50,6 +50,7 @@ struct fileStruct {
 struct threadArgs {
   void* mpvHandle;
   void* quadfive;
+  pthread_mutex_t quadfiveLock;
   void* context;
   int* bCancel;
 };

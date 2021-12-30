@@ -35,17 +35,20 @@ void mpvZeroMQSendEventName(void *zmq_conn, mpv_event *event) {
   if (event->event_id > 0) {
     char *event_name = (char*)mpv_event_name(event->event_id);
     printf("Got Other! %d - %s\n", event->event_id, event_name);
-    s_send(zmq_conn, event_name);
+    int senda = s_sendmore(zmq_conn, event_name);
+    int sendb = s_send(zmq_conn, "");
   }
 }
 
-void mpvZeroMQSendVideoInfo(void *mpvHandle, void *zmq_conn)
+void mpvZeroMQSendVideoInfo(void *mpvHandle, void *zmq_conn, pthread_mutex_t quadfiveLock)
 {
   // Duration
   char* mpvDur = mpv_get_property_string(mpvHandle, "duration");
   if (mpvDur != NULL) {
-    s_sendmore(zmq_conn, "duration");
-    s_send(zmq_conn, mpvDur);
+    pthread_mutex_lock(&quadfiveLock);
+    int senda = s_sendmore(zmq_conn, "duration");
+    int sendb = s_send(zmq_conn, mpvDur);
+    pthread_mutex_unlock(&quadfiveLock);
     mpv_free(mpvDur);
   }
 
@@ -73,8 +76,10 @@ void mpvZeroMQSendVideoInfo(void *mpvHandle, void *zmq_conn)
   // file
   char* mpvFilename = mpv_get_property_string(mpvHandle, "filename");
   if (mpvFilename != NULL) {
+    pthread_mutex_lock(&quadfiveLock);
     s_sendmore(zmq_conn, "filename");
     s_send(zmq_conn, mpvFilename);
+    pthread_mutex_unlock(&quadfiveLock);
     mpv_free(mpvFilename);
   }
 }
@@ -149,8 +154,10 @@ void *mpvZeroMQThread(void * arguments)
             strLen = snprintf(NULL, 0, snFlag, event->reply_userdata, *(char **)prop->data) + 1;
             strReply = (char*)malloc(strLen * sizeof(char *));
             snprintf(strReply, strLen, snFlag, event->reply_userdata, *(char **)prop->data);
+            pthread_mutex_lock(&args->quadfiveLock);
             s_sendmore(args->quadfive, "event");
             s_send(args->quadfive, strReply);
+            pthread_mutex_unlock(&args->quadfiveLock);
           break;
 
           case MPV_FORMAT_INT64:
@@ -159,8 +166,10 @@ void *mpvZeroMQThread(void * arguments)
             strLen = snprintf(NULL, 0, snFlag, event->reply_userdata, *(int64_t*)prop->data) + 1;
             strReply = (char*)malloc(strLen * sizeof(char *));
             snprintf(strReply, strLen, snFlag, event->reply_userdata, *(int64_t*)prop->data);
+            pthread_mutex_lock(&args->quadfiveLock);
             s_sendmore(args->quadfive, "event");
-            s_send(args->quadfive, strReply);            
+            s_send(args->quadfive, strReply);
+            pthread_mutex_unlock(&args->quadfiveLock);      
           break;
 
           case MPV_FORMAT_DOUBLE: {
@@ -169,8 +178,10 @@ void *mpvZeroMQThread(void * arguments)
             strLen = snprintf(NULL, 0, snFlag, event->reply_userdata, *(double*)prop->data) + 1;
             strReply = (char*)malloc(strLen * sizeof(char *));
             snprintf(strReply, strLen, snFlag, event->reply_userdata, *(double*)prop->data);
+            pthread_mutex_lock(&args->quadfiveLock);
             s_sendmore(args->quadfive, "event");
-            s_send(args->quadfive, strReply);   
+            s_send(args->quadfive, strReply);
+            pthread_mutex_unlock(&args->quadfiveLock);
           }
           break;
 
@@ -191,7 +202,9 @@ void *mpvZeroMQThread(void * arguments)
       break;
       case MPV_EVENT_IDLE: {
         // Send standard event name
+        pthread_mutex_lock(&args->quadfiveLock);
         mpvZeroMQSendEventName(args->quadfive, event);
+        pthread_mutex_unlock(&args->quadfiveLock);
         /*const char *cmd[] = {"loadfile", "/home/vid/3001_1.MTS", NULL};
         uint64_t retVal = 1;
         rc = mpv_command_async(args->mpvHandle, retVal, cmd);
@@ -204,7 +217,9 @@ void *mpvZeroMQThread(void * arguments)
       break;
       case MPV_EVENT_SHUTDOWN:
         // Send standard event name
+        pthread_mutex_lock(&args->quadfiveLock);
         mpvZeroMQSendEventName(args->quadfive, event);
+        pthread_mutex_unlock(&args->quadfiveLock);
         printf("Shutdown\n");
         (*args->bCancel) = 1;
 
@@ -212,17 +227,21 @@ void *mpvZeroMQThread(void * arguments)
       case MPV_EVENT_FILE_LOADED: {
         // Send standard event name
         printf("File Loaded\n");
+        pthread_mutex_lock(&args->quadfiveLock);
         mpvZeroMQSendEventName(args->quadfive, event);
-        // mpvZeroMQSendVideoInfo(args->mpvHandle, args->quadfive);
+        pthread_mutex_unlock(&args->quadfiveLock);
+        // mpvZeroMQSendVideoInfo(args->mpvHandle, args->quadfive, args->quadfiveLock);
       }
       break;
 
       case MPV_EVENT_METADATA_UPDATE: {
-        mpvZeroMQSendVideoInfo(args->mpvHandle, args->quadfive);
+        mpvZeroMQSendVideoInfo(args->mpvHandle, args->quadfive, args->quadfiveLock);
       }
       break;
       default: {
+        pthread_mutex_lock(&args->quadfiveLock);
         mpvZeroMQSendEventName(args->quadfive, event);
+        pthread_mutex_unlock(&args->quadfiveLock);
       }
       break;
     }

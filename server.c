@@ -349,6 +349,7 @@ int main(int argc, char* args[])
   struct threadArgs threadpassArgs;
   threadpassArgs.mpvHandle = mpvHandle;
   threadpassArgs.quadfive = quadfive;
+  threadpassArgs.quadfiveLock = quadfiveLock;
   threadpassArgs.context = context;
   threadpassArgs.bCancel = &m_bQuit;
 
