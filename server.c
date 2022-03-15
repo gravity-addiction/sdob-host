@@ -263,7 +263,7 @@ void *mpvWriterThread(void * arguments)
 
   // Open :5558 for sync requests
   void *command_req = zmq_socket (args->context, ZMQ_REP);
-  rc = zmq_bind (command_req, "tcp://*:5558");
+  rc = zmq_bind (command_req, "inproc://reqserver"); // "tcp://*:5558");
   assert (rc == 0); 
 
   while(!(*args->bCancel)) {
@@ -334,12 +334,12 @@ int main(int argc, char* args[])
 
   // Open :5555 for publishing
   quadfive = zmq_socket(context, ZMQ_PUB);
-  rc = zmq_bind(quadfive, "tcp://*:5555");
+  rc = zmq_bind(quadfive, "inproc://videoserver"); // "tcp://*:5555");
   assert (rc == 0);
 
   // Open :5559 for one-way requests
   void *command_raw = zmq_socket (context, ZMQ_PULL);
-  rc = zmq_bind (command_raw, "tcp://*:5559");
+  rc = zmq_bind (command_raw, "inproc://cmdserver"); // "tcp://*:5559");
   assert (rc == 0);
 
   // Create MPV Player Handle
